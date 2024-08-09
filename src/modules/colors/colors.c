@@ -87,10 +87,11 @@ void ffPrintColors(FFColorsOptions* options)
             case FF_COLORS_SYMBOL_STAR: symbol = "★ "; break;
             default: symbol = "███ "; break;
         }
-        for (int i = 8; i >= 1; --i)
+        int tflag_colors[5] = {4,5,7,5,4};
+        for (int i = 0; i < 5 ; i++)
         {
             if (!instance.config.display.pipe)
-                ffStrbufAppendF(&result, "\e[3%dm", i);
+                ffStrbufAppendF(&result, "\e[3%dm", tflag_colors[i]);
             ffStrbufAppendS(&result, symbol);
         }
         ffStrbufTrimRight(&result, ' ');
