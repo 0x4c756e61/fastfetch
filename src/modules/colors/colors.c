@@ -55,7 +55,12 @@ void ffPrintColors(FFColorsOptions* options)
         #ifdef __linux__
         // Required by Linux Console for light background to work
         if (options->symbol == FF_COLORS_SYMBOL_BACKGROUND)
-            ffStrbufAppendS(&result, "\e[5m");
+        {
+            const char* term = getenv("TERM");
+            // Should be "linux", however some terminal mulitplexer overrides $TERM
+            if (term && !ffStrStartsWith(term, "xterm"))
+                ffStrbufAppendS(&result, "\e[5m");
+        }
         #endif
 
         // 9%d: Set the foreground to the bright color
