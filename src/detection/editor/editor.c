@@ -1,5 +1,6 @@
 #include "editor.h"
 #include "common/processing.h"
+#include "common/library.h"
 #include "util/stringUtils.h"
 #include "util/path.h"
 #include "util/binary.h"
@@ -13,26 +14,23 @@ static inline char* realpath(const char* restrict file_name, char* restrict reso
 }
 #endif
 
-static bool extractNvimVersion(const char* str, uint32_t len, void* userdata)
+static bool extractNvimVersionFromBinary(const char* str, FF_MAYBE_UNUSED uint32_t len, void* userdata)
 {
-    if (len < strlen("NVIM v0.0.0")) return true;
     if (!ffStrStartsWith(str, "NVIM v")) return true;
     ffStrbufSetS((FFstrbuf*) userdata, str + strlen("NVIM v"));
     return false;
 }
 
-static bool extractVimVersion(const char* str, uint32_t len, void* userdata)
+static bool extractVimVersionFromBinary(const char* str, FF_MAYBE_UNUSED uint32_t len, void* userdata)
 {
-    if (len < strlen("VIM - Vi IMproved 0.0")) return true;
     if (!ffStrStartsWith(str, "VIM - Vi IMproved ")) return true;
     ffStrbufSetS((FFstrbuf*) userdata, str + strlen("VIM - Vi IMproved "));
     ffStrbufSubstrBeforeFirstC(userdata, ' ');
     return false;
 }
 
-static bool extractNanoVersion(const char* str, uint32_t len, void* userdata)
+static bool extractNanoVersionFromBinary(const char* str, FF_MAYBE_UNUSED uint32_t len, void* userdata)
 {
-    if (len < strlen("GNU nano 0.0")) return true;
     if (!ffStrStartsWith(str, "GNU nano ")) return true;
     ffStrbufSetS((FFstrbuf*) userdata, str + strlen("GNU nano "));
     return false;
@@ -57,16 +55,21 @@ const char* ffDetectEditor(FFEditorResult* result)
     else
     {
         const char* error = ffFindExecutableInPath(result->name.chars, &result->path);
-        if (error) return error;
+        if (error) return NULL;
     }
 
-    if (!instance.config.general.detectVersion) return NULL;
+    {
+        char buf[PATH_MAX + 1];
+        if (!realpath(result->path.chars, buf))
+            return NULL;
 
-    char buf[PATH_MAX + 1];
-    if (!realpath(result->path.chars, buf))
-        return NULL;
+        // WIN32: Should we handle scoop shim exe here?
 
-    ffStrbufSetS(&result->path, buf);
+        #ifdef __linux__
+        if (!ffStrEndsWith(buf, "/snap"))
+        #endif
+            ffStrbufSetS(&result->path, buf);
+    }
 
     {
         uint32_t index = ffStrbufLastIndexC(&result->path,
@@ -88,12 +91,14 @@ const char* ffDetectEditor(FFEditorResult* result)
         #endif
     }
 
+    if (!instance.config.general.detectVersion) return NULL;
+
     if (ffStrbufEqualS(&result->exe, "nvim"))
-        ffBinaryExtractStrings(buf, extractNvimVersion, &result->version);
+        ffBinaryExtractStrings(result->path.chars, extractNvimVersionFromBinary, &result->version, (uint32_t) strlen("NVIM v0.0.0"));
     else if (ffStrbufEqualS(&result->exe, "vim"))
-        ffBinaryExtractStrings(buf, extractVimVersion, &result->version);
+        ffBinaryExtractStrings(result->path.chars, extractVimVersionFromBinary, &result->version, (uint32_t) strlen("VIM - Vi IMproved 0.0"));
     else if (ffStrbufEqualS(&result->exe, "nano"))
-        ffBinaryExtractStrings(buf, extractNanoVersion, &result->version);
+        ffBinaryExtractStrings(result->path.chars, extractNanoVersionFromBinary, &result->version, (uint32_t) strlen("GNU nano 0.0"));
 
     if (result->version.length > 0) return NULL;
 
