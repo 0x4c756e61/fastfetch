@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0) # target_link_libraries with OBJECT libs & project homepage url
 
 project(fastfetch
-    VERSION 2.23.0
+    VERSION 2.24.0
     LANGUAGES C
     DESCRIPTION "Fast neofetch-like system information tool"
     HOMEPAGE_URL "https://github.com/fastfetch-cli/fastfetch"
@@ -69,7 +69,7 @@ cmake_dependent_option(ENABLE_FREETYPE "Enable freetype" ON "ANDROID" OFF)
 cmake_dependent_option(ENABLE_PULSE "Enable pulse" ON "LINUX OR SunOS" OFF)
 cmake_dependent_option(ENABLE_DDCUTIL "Enable ddcutil" ON "LINUX" OFF)
 cmake_dependent_option(ENABLE_DIRECTX_HEADERS "Enable DirectX headers for WSL" ON "LINUX" OFF)
-cmake_dependent_option(ENABLE_ELF "Enable libelf" ON "LINUX OR FreeBSD OR ANDROID" OFF)
+cmake_dependent_option(ENABLE_ELF "Enable libelf" ON "LINUX OR ANDROID" OFF)
 cmake_dependent_option(ENABLE_THREADS "Enable multithreading" ON "Threads_FOUND" OFF)
 cmake_dependent_option(ENABLE_LIBZFS "Enable libzfs" ON "LINUX OR FreeBSD OR SunOS" OFF)
 
@@ -87,6 +87,15 @@ set_property(CACHE BINARY_LINK_TYPE PROPERTY STRINGS ${BINARY_LINK_TYPE_OPTIONS}
 if(NOT BINARY_LINK_TYPE IN_LIST BINARY_LINK_TYPE_OPTIONS)
     message(FATAL_ERROR "BINARY_LINK_TYPE must be one of ${BINARY_LINK_TYPE_OPTIONS}")
 endif()
+
+set(PACKAGE_MANAGERS AM APK BREW CHOCO DPKG EMERGE EOPKG FLATPAK GUIX LINGLONG LPKG LPKGBUILD MACPORTS NIX OPKG PACMAN PALUDIS PKG PKGTOOL RPM SCOOP SNAP SORCERY WINGET XBPS)
+foreach(package_manager ${PACKAGE_MANAGERS})
+    if(package_manager STREQUAL "WINGET")
+        option(PACKAGES_DISABLE_${package_manager} "Disable ${package_manager} package manager detection by default" ON)
+    else()
+        option(PACKAGES_DISABLE_${package_manager} "Disable ${package_manager} package manager detection by default" OFF)
+    endif()
+endforeach()
 
 if (LINUX)
     set(CUSTOM_PCI_IDS_PATH "" CACHE STRING "Custom path to file pci.ids, defaults to `/usr/share/hwdata/pci.ids`")
@@ -333,6 +342,7 @@ set(LIBFASTFETCH_SRC
     src/modules/bootmgr/bootmgr.c
     src/modules/brightness/brightness.c
     src/modules/break/break.c
+    src/modules/btrfs/btrfs.c
     src/modules/camera/camera.c
     src/modules/chassis/chassis.c
     src/modules/colors/colors.c
@@ -398,7 +408,6 @@ set(LIBFASTFETCH_SRC
     src/options/modules.c
     src/options/logo.c
     src/options/general.c
-    src/options/library.c
     src/util/edidHelper.c
     src/util/base64.c
     src/util/FFlist.c
@@ -420,6 +429,7 @@ if(LINUX)
         src/detection/board/board_linux.c
         src/detection/bootmgr/bootmgr_linux.c
         src/detection/brightness/brightness_linux.c
+        src/detection/btrfs/btrfs_linux.c
         src/detection/chassis/chassis_linux.c
         src/detection/cpu/cpu_linux.c
         src/detection/cpucache/cpucache_linux.c
@@ -500,6 +510,7 @@ elseif(ANDROID)
         src/detection/board/board_android.c
         src/detection/bootmgr/bootmgr_nosupport.c
         src/detection/brightness/brightness_nosupport.c
+        src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_nosupport.c
         src/detection/cpu/cpu_linux.c
         src/detection/cpucache/cpucache_linux.c
@@ -565,6 +576,7 @@ elseif(FreeBSD)
         src/detection/board/board_bsd.c
         src/detection/bootmgr/bootmgr_bsd.c
         src/detection/brightness/brightness_bsd.c
+        src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_bsd.c
         src/detection/cpu/cpu_bsd.c
         src/detection/cpucache/cpucache_shared.c
@@ -644,6 +656,7 @@ elseif(APPLE)
         src/detection/board/board_apple.c
         src/detection/bootmgr/bootmgr_apple.c
         src/detection/brightness/brightness_apple.c
+        src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_nosupport.c
         src/detection/cpu/cpu_apple.c
         src/detection/cpucache/cpucache_apple.c
@@ -710,6 +723,7 @@ elseif(WIN32)
         src/detection/board/board_windows.c
         src/detection/bootmgr/bootmgr_windows.c
         src/detection/brightness/brightness_windows.cpp
+        src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_windows.c
         src/detection/cpu/cpu_windows.c
         src/detection/cpucache/cpucache_windows.c
@@ -777,6 +791,7 @@ elseif(SunOS)
         src/detection/board/board_windows.c
         src/detection/bootmgr/bootmgr_nosupport.c
         src/detection/brightness/brightness_nosupport.c
+        src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_windows.c
         src/detection/cpu/cpu_sunos.c
         src/detection/cpucache/cpucache_shared.c
@@ -886,8 +901,8 @@ add_library(libfastfetch OBJECT
 )
 
 if(yyjson_FOUND)
-    target_compile_definitions(libfastfetch PRIVATE FF_USE_SYSTEM_YYJSON)
-    target_link_libraries(libfastfetch PRIVATE yyjson::yyjson)
+    target_compile_definitions(libfastfetch PUBLIC FF_USE_SYSTEM_YYJSON)
+    target_link_libraries(libfastfetch PUBLIC yyjson::yyjson)
     # `target_link_libraries(yyjson::yyjson)` sets rpath implicitly
 else()
     # Used for dlopen finding dylibs installed by homebrew
@@ -929,11 +944,11 @@ elseif(SunOS)
 endif()
 
 if(HAVE_STATX)
-    target_compile_definitions(libfastfetch PRIVATE FF_HAVE_STATX)
+    target_compile_definitions(libfastfetch PUBLIC FF_HAVE_STATX)
 endif()
 
 if(HAVE_WCWIDTH)
-    target_compile_definitions(libfastfetch PRIVATE FF_HAVE_WCWIDTH)
+    target_compile_definitions(libfastfetch PUBLIC FF_HAVE_WCWIDTH)
 endif()
 
 if(NOT "${CUSTOM_PCI_IDS_PATH}" STREQUAL "")
@@ -1265,6 +1280,22 @@ if(NOT WIN32)
     endif()
 endif()
 
+set(PACKAGES_DISABLE_LIST "")
+foreach(package_manager ${PACKAGE_MANAGERS})
+    if(PACKAGES_DISABLE_${package_manager})
+        list(APPEND PACKAGES_DISABLE_LIST "${package_manager}")
+    endif()
+endforeach()
+if("${PACKAGES_DISABLE_LIST}" STREQUAL "")
+    set(PACKAGES_DISABLE_LIST "FF_PACKAGES_FLAG_NONE")
+else()
+    message(STATUS "Disabled package managers: ${PACKAGES_DISABLE_LIST}")
+    list(TRANSFORM PACKAGES_DISABLE_LIST PREPEND "FF_PACKAGES_FLAG_")
+    list(TRANSFORM PACKAGES_DISABLE_LIST APPEND "_BIT")
+    list(JOIN PACKAGES_DISABLE_LIST " | " PACKAGES_DISABLE_LIST)
+endif()
+target_compile_definitions(libfastfetch PRIVATE FF_PACKAGES_DISABLE_LIST=${PACKAGES_DISABLE_LIST})
+
 ######################
 # Executable targets #
 ######################
@@ -1294,13 +1325,6 @@ set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 set_target_properties(fastfetch PROPERTIES LINKER_LANGUAGE C)
 set_target_properties(flashfetch PROPERTIES LINKER_LANGUAGE C)
-
-if(yyjson_FOUND)
-    target_compile_definitions(fastfetch PRIVATE FF_USE_SYSTEM_YYJSON)
-    target_link_libraries(fastfetch PRIVATE yyjson::yyjson)
-    target_compile_definitions(flashfetch PRIVATE FF_USE_SYSTEM_YYJSON)
-    target_link_libraries(flashfetch PRIVATE yyjson::yyjson)
-endif()
 
 if(WIN32)
     target_sources(fastfetch
