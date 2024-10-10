@@ -35,6 +35,7 @@ void ffOptionsInitModules(FFOptionsModules* options)
     ffInitIconsOptions(&options->icons);
     ffInitInitSystemOptions(&options->initSystem);
     ffInitKernelOptions(&options->kernel);
+    ffInitKeyboardOptions(&options->keyboard);
     ffInitLMOptions(&options->lm);
     ffInitLoadavgOptions(&options->loadavg);
     ffInitLocalIpOptions(&options->localIP);
@@ -42,6 +43,7 @@ void ffOptionsInitModules(FFOptionsModules* options)
     ffInitMediaOptions(&options->media);
     ffInitMemoryOptions(&options->memory);
     ffInitMonitorOptions(&options->monitor);
+    ffInitMouseOptions(&options->mouse);
     ffInitNetIOOptions(&options->netIo);
     ffInitOSOptions(&options->os);
     ffInitOpenCLOptions(&options->openCL);
@@ -63,6 +65,7 @@ void ffOptionsInitModules(FFOptionsModules* options)
     ffInitTerminalThemeOptions(&options->terminalTheme);
     ffInitThemeOptions(&options->theme);
     ffInitTitleOptions(&options->title);
+    ffInitTPMOptions(&options->tpm);
     ffInitUptimeOptions(&options->uptime);
     ffInitUsersOptions(&options->users);
     ffInitVersionOptions(&options->version);
@@ -109,6 +112,7 @@ void ffOptionsDestroyModules(FFOptionsModules* options)
     ffDestroyIconsOptions(&options->icons);
     ffDestroyInitSystemOptions(&options->initSystem);
     ffDestroyKernelOptions(&options->kernel);
+    ffDestroyKeyboardOptions(&options->keyboard);
     ffDestroyLMOptions(&options->lm);
     ffDestroyLoadavgOptions(&options->loadavg);
     ffDestroyLocalIpOptions(&options->localIP);
@@ -116,6 +120,7 @@ void ffOptionsDestroyModules(FFOptionsModules* options)
     ffDestroyMediaOptions(&options->media);
     ffDestroyMemoryOptions(&options->memory);
     ffDestroyMonitorOptions(&options->monitor);
+    ffDestroyMouseOptions(&options->mouse);
     ffDestroyNetIOOptions(&options->netIo);
     ffDestroyOSOptions(&options->os);
     ffDestroyOpenCLOptions(&options->openCL);
@@ -137,6 +142,7 @@ void ffOptionsDestroyModules(FFOptionsModules* options)
     ffDestroyTerminalThemeOptions(&options->terminalTheme);
     ffDestroyThemeOptions(&options->theme);
     ffDestroyTitleOptions(&options->title);
+    ffDestroyTPMOptions(&options->tpm);
     ffDestroyUptimeOptions(&options->uptime);
     ffDestroyUsersOptions(&options->users);
     ffDestroyVersionOptions(&options->version);

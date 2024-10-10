@@ -2,13 +2,85 @@
 #include "common/io/io.h"
 #include "common/processing.h"
 #include "common/properties.h"
-#include "detection/temps/temps_linux.h"
 #include "util/mallocHelper.h"
 #include "util/stringUtils.h"
 
 #include <sys/sysinfo.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <dirent.h>
+
+static double parseHwmonDir(FFstrbuf* dir, FFstrbuf* buffer)
+{
+    //https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
+    uint32_t dirLength = dir->length;
+    ffStrbufAppendS(dir, "temp1_input");
+
+    if(!ffReadFileBuffer(dir->chars, buffer))
+    {
+        // Some badly implemented system put temp file in /hwmonN/device
+        ffStrbufSubstrBefore(dir, dirLength);
+        ffStrbufAppendS(dir, "device/");
+        dirLength = dir->length;
+        ffStrbufAppendS(dir, "temp1_input");
+
+        if(!ffReadFileBuffer(dir->chars, buffer))
+            return 0.0/0.0;
+    }
+
+    ffStrbufSubstrBefore(dir, dirLength);
+
+    double value = ffStrbufToDouble(buffer);// millidegree Celsius
+
+    if(value != value)
+        return 0.0/0.0;
+
+    ffStrbufAppendS(dir, "name");
+    if (!ffReadFileBuffer(dir->chars, buffer))
+        return 0.0/0.0;
+
+    ffStrbufTrimRightSpace(buffer);
+
+    if(
+        ffStrbufContainS(buffer, "cpu") ||
+        ffStrbufEqualS(buffer, "k10temp") || // AMD
+        ffStrbufEqualS(buffer, "coretemp") // Intel
+    ) return value / 1000.;
+
+    return 0.0/0.0;
+}
+
+static double detectCPUTemp(void)
+{
+    FF_STRBUF_AUTO_DESTROY baseDir = ffStrbufCreateA(64);
+    ffStrbufAppendS(&baseDir, "/sys/class/hwmon/");
+
+    FF_STRBUF_AUTO_DESTROY buffer = ffStrbufCreate();
+
+    uint32_t baseDirLength = baseDir.length;
+
+    FF_AUTO_CLOSE_DIR DIR* dirp = opendir(baseDir.chars);
+    if(dirp == NULL)
+        return 0.0/0.0;
+
+    struct dirent* entry;
+    while((entry = readdir(dirp)) != NULL)
+    {
+        if(entry->d_name[0] == '.')
+            continue;
+
+        ffStrbufAppendS(&baseDir, entry->d_name);
+        ffStrbufAppendC(&baseDir, '/');
+
+        double result = parseHwmonDir(&baseDir, &buffer);
+        if (result == result)
+            return result;
+
+        ffStrbufSubstrBefore(&baseDir, baseDirLength);
+    }
+
+    return 0.0/0.0;
+}
 
 #ifdef __ANDROID__
 #include "common/settings.h"
@@ -253,17 +325,24 @@ static bool detectFrequency(FFCPUResult* cpu, const FFCPUOptions* options)
         if (ffStrStartsWith(entry->d_name, "policy") && ffCharIsDigit(entry->d_name[strlen("policy")]))
         {
             ffStrbufAppendS(&path, entry->d_name);
+
+            uint32_t fmax = getFrequency(&path, "/cpuinfo_max_freq", "/scaling_max_freq", &buffer);
+            if (fmax == 0) continue;
+
+            if (cpu->frequencyMax >= fmax)
+            {
+                if (!options->showPeCoreCount)
+                {
+                    ffStrbufSubstrBefore(&path, baseLen);
+                    continue;
+                }
+            }
+            else
+                cpu->frequencyMax = fmax;
+
             uint32_t fbase = getFrequency(&path, "/base_frequency", NULL, &buffer);
             if (fbase > 0)
                 cpu->frequencyBase = cpu->frequencyBase > fbase ? cpu->frequencyBase : fbase;
-
-            uint32_t fbioslimit = getFrequency(&path, "/bios_limit", NULL, &buffer);
-            if (fbioslimit > 0)
-                cpu->frequencyBiosLimit = cpu->frequencyBiosLimit > fbioslimit ? cpu->frequencyBiosLimit : fbioslimit;
-
-            uint32_t fmax = getFrequency(&path, "/cpuinfo_max_freq", "/scaling_max_freq", &buffer);
-            if (fmax > 0)
-                cpu->frequencyMax = cpu->frequencyMax > fmax ? cpu->frequencyMax : fmax;
 
             if (options->showPeCoreCount)
             {
@@ -279,22 +358,6 @@ static bool detectFrequency(FFCPUResult* cpu, const FFCPUOptions* options)
         }
     }
     return true;
-}
-
-static double detectCPUTemp(void)
-{
-    const FFlist* tempsResult = ffDetectTemps();
-
-    FF_LIST_FOR_EACH(FFTempValue, value, *tempsResult)
-    {
-        if(
-            ffStrbufFirstIndexS(&value->name, "cpu") < value->name.length ||
-            ffStrbufEqualS(&value->name, "k10temp") ||
-            ffStrbufEqualS(&value->name, "coretemp")
-        ) return value->value;
-    }
-
-    return FF_CPU_TEMP_UNSET;
 }
 
 FF_MAYBE_UNUSED static void parseIsa(FFstrbuf* cpuIsa)
@@ -325,38 +388,53 @@ FF_MAYBE_UNUSED static void detectArmSoc(FFCPUResult* cpu)
         return;
 
     // device-vendor,device-model\0soc-vendor,soc-model\0
-    char content[64];
+    char content[256];
     ssize_t length = ffReadFileData("/proc/device-tree/compatible", sizeof(content), content);
     if (length <= 2) return;
 
-    // get the second NUL terminated string
-    char* modelName = memchr(content, '\0', (size_t) length) + 1;
-    if (!modelName || modelName - content >= length) return;
+    // get the second NUL terminated string if it exists
+    char* vendor = memchr(content, '\0', (size_t) length) + 1;
+    if (!vendor || vendor - content >= length) vendor = content;
 
-    if (ffStrStartsWith(modelName, "apple,t"))
+    char* model = strchr(vendor, ',');
+    if (!model) return;
+    *model = '\0';
+    ++model;
+
+    if (false) {}
+    #if __aarch64__
+    else if (ffStrEquals(vendor, "apple"))
     {
-        // https://elixir.bootlin.com/linux/v6.11-rc7/source/arch/arm64/boot/dts/apple
-        const char* code = modelName + strlen("apple,t");
-        uint32_t deviceId = (uint32_t) strtoul(code, NULL, 10);
-        ffStrbufSetStatic(&cpu->name, ffCPUAppleCodeToName(deviceId));
-        if (!cpu->name.length)
+        // https://elixir.bootlin.com/linux/v6.11/source/arch/arm64/boot/dts/apple
+        if (model[0] == 't')
         {
-            ffStrbufAppendS(&cpu->name, "Apple Silicon T");
-            ffStrbufAppendS(&cpu->name, code);
+            uint32_t deviceId = (uint32_t) strtoul(model + 1, NULL, 10);
+            ffStrbufSetStatic(&cpu->name, ffCPUAppleCodeToName(deviceId));
+
+            if (!cpu->name.length)
+            {
+                ffStrbufSetS(&cpu->name, "Apple Silicon ");
+                ffStrbufAppendS(&cpu->name, model);
+            }
         }
+        else
+            ffStrbufSetS(&cpu->name, model);
+
+        ffStrbufSetStatic(&cpu->vendor, "Apple");
     }
-    else if (ffStrStartsWith(modelName, "qcom,"))
+    #endif
+    else if (ffStrEquals(vendor, "qcom"))
     {
-        // https://elixir.bootlin.com/linux/v6.11-rc7/source/arch/arm64/boot/dts/qcom
-        if (ffStrStartsWith(modelName + strlen("qcom,"), "x"))
+        // https://elixir.bootlin.com/linux/v6.11/source/arch/arm64/boot/dts/qcom
+        if (ffStrStartsWith(model, "x"))
         {
             ffStrbufSetS(&cpu->name, "Qualcomm Snapdragon X Elite ");
-            for (const char* p = modelName + strlen("qcom,"); *p; ++p)
+            for (const char* p = model + 1; *p; ++p)
                 ffStrbufAppendC(&cpu->name, (char) toupper(*p));
         }
-        else if (ffStrStartsWith(modelName + strlen("qcom,"), "sc"))
+        else if (ffStrStartsWith(model, "sc"))
         {
-            const char* code = modelName + strlen("qcom,sc");
+            const char* code = model + 2;
             uint32_t deviceId = (uint32_t) strtoul(code, NULL, 10);
             ffStrbufSetStatic(&cpu->name, ffCPUQualcommCodeToName(deviceId));
             if (!cpu->name.length)
@@ -365,6 +443,23 @@ FF_MAYBE_UNUSED static void detectArmSoc(FFCPUResult* cpu)
                 ffStrbufAppendS(&cpu->name, code);
             }
         }
+        else
+            ffStrbufSetS(&cpu->name, model);
+
+        ffStrbufSetStatic(&cpu->vendor, "Qualcomm");
+    }
+    else if (ffStrEquals(vendor, "brcm"))
+    {
+        // Raspberry Pi
+        ffStrbufSetStatic(&cpu->vendor, "Broadcom");
+        for (const char* p = model; *p; ++p)
+            ffStrbufAppendC(&cpu->name, (char) toupper(*p));
+    }
+    else
+    {
+        ffStrbufSetS(&cpu->name, model);
+        ffStrbufSetS(&cpu->vendor, vendor);
+        cpu->vendor.chars[0] = (char) toupper(vendor[0]);
     }
 }
 
@@ -417,7 +512,7 @@ const char* ffDetectCPUImpl(const FFCPUOptions* options, FFCPUResult* cpu)
 
     #if __ANDROID__
     detectAndroid(cpu);
-    #elif __aarch64__
+    #else
     detectArmSoc(cpu);
     #endif
 

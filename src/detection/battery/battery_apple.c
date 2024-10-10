@@ -1,7 +1,7 @@
 #include "fastfetch.h"
 #include "battery.h"
 #include "util/apple/cf_helpers.h"
-#include "detection/temps/temps_apple.h"
+#include "util/apple/smc_temps.h"
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPM.h>
@@ -43,6 +43,11 @@ const char* ffDetectBattery(FFBatteryOptions* options, FFlist* results)
         ffCfDictGetString(properties, CFSTR(kIOPMDeviceNameKey), &battery->modelName);
         ffCfDictGetString(properties, CFSTR(kIOPMPSSerialKey), &battery->serial);
         ffCfDictGetString(properties, CFSTR(kIOPMPSManufacturerKey), &battery->manufacturer);
+        ffCfDictGetInt(properties, CFSTR(kIOPMPSTimeRemainingKey), &battery->timeRemaining); // in minutes
+        if (battery->timeRemaining == 0xFFFF)
+            battery->timeRemaining = -1;
+        else
+            battery->timeRemaining *= 60;
 
         if (!ffCfDictGetBool(properties, CFSTR("built-in"), &boolValue) && boolValue)
         {
