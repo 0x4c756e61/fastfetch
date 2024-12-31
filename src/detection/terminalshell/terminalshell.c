@@ -8,6 +8,9 @@
 #include <ctype.h>
 #ifdef __FreeBSD__
     #include <paths.h>
+    #ifndef _PATH_LOCALBASE
+        #define _PATH_LOCALBASE "/usr/local"
+    #endif
 #elif __OpenBSD__
     #define _PATH_LOCALBASE "/usr/local"
 #elif __NetBSD__
@@ -106,6 +109,15 @@ static bool getShellVersionFish(FFstrbuf* exe, FFstrbuf* version)
 
 static bool getShellVersionPwsh(FFstrbuf* exe, FFstrbuf* version)
 {
+    // Requires manually setting $POWERSHELL_VERSION
+    // $env:POWERSHELL_VERSION = $PSVersionTable.PSVersion.ToString(); fastfetch.exe
+    const char* env = getenv("POWERSHELL_VERSION");
+    if (env)
+    {
+        ffStrbufSetS(version, env);
+        return true;
+    }
+
     #ifdef _WIN32
     if(getFileVersion(exe->chars, version))
     {
@@ -246,6 +258,13 @@ static bool getShellVersionZsh(FFstrbuf* exe, FFstrbuf* exePath, FFstrbuf* versi
 #ifdef _WIN32
 static bool getShellVersionWinPowerShell(FFstrbuf* exe, FFstrbuf* version)
 {
+    const char* env = getenv("POWERSHELL_VERSION");
+    if (env)
+    {
+        ffStrbufSetS(version, env);
+        return true;
+    }
+
     return ffProcessAppendStdOut(version, (char* const[]) {
         exe->chars,
         "-NoLogo",
@@ -638,6 +657,39 @@ FF_MAYBE_UNUSED static bool getTerminalVersionPtyxis(FF_MAYBE_UNUSED FFstrbuf* e
     ffStrbufSubstrAfterFirstC(version, ' ');
     return true;
 }
+
+FF_MAYBE_UNUSED static bool getTerminalVersionTilix(FFstrbuf* exe, FFstrbuf* version)
+{
+    if(ffProcessAppendStdOut(version, (char* const[]) {
+        exe->chars,
+        "--version",
+        NULL
+    }) != NULL)
+        return false;
+
+    uint32_t index = ffStrbufFirstIndexS(version, "Tilix version: ");
+    if (index == version->length) return false;
+
+    index += (uint32_t) strlen("Tilix version:");
+    uint32_t end = ffStrbufNextIndexC(version, index, '\n');
+
+    ffStrbufSubstrBefore(version, end);
+    ffStrbufSubstrAfter(version, index);
+    return true;
+}
+
+FF_MAYBE_UNUSED static bool getTerminalVersionSakura(FFstrbuf* exe, FFstrbuf* version)
+{
+    if(ffProcessAppendStdErr(version, (char* const[]) {
+        exe->chars,
+        "--version",
+        NULL
+    }) != NULL) // sakura version is 3.8.8
+        return false;
+
+    ffStrbufSubstrAfterLastC(version, ' ');
+    return true;
+}
 #endif
 
 #ifdef _WIN32
@@ -736,6 +788,12 @@ bool fftsGetTerminalVersion(FFstrbuf* processName, FF_MAYBE_UNUSED FFstrbuf* exe
 
     if(ffStrbufIgnCaseEqualS(processName, "ptyxis-agent"))
         return getTerminalVersionPtyxis(exe, version);
+
+    if(ffStrbufIgnCaseEqualS(processName, "tilix"))
+        return getTerminalVersionTilix(exe, version);
+
+    if(ffStrbufIgnCaseEqualS(processName, "sakura"))
+        return getTerminalVersionSakura(exe, version);
 
     #endif
 

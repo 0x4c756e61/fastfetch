@@ -12,7 +12,7 @@
 
 #ifdef _WIN32
     // #include <shlwapi.h>
-    __stdcall const char* StrStrIA(const char* lpFirst, const char* lpSrch);
+    __stdcall char* StrStrIA(const char* lpFirst, const char* lpSrch);
     #define strcasestr StrStrIA
 #endif
 
@@ -89,6 +89,9 @@ FF_C_NODISCARD uint64_t ffStrbufToUInt(const FFstrbuf* strbuf, uint64_t defaultV
 
 void ffStrbufUpperCase(FFstrbuf* strbuf);
 void ffStrbufLowerCase(FFstrbuf* strbuf);
+
+bool ffStrbufGetline(char** lineptr, size_t* n, FFstrbuf* buffer);
+bool ffStrbufRemoveDupWhitespaces(FFstrbuf* strbuf);
 
 FF_C_NODISCARD static inline FFstrbuf ffStrbufCreateA(uint32_t allocate)
 {
@@ -379,7 +382,7 @@ static inline FF_C_NODISCARD uint32_t ffStrbufFirstIndexS(const FFstrbuf* strbuf
 static inline FF_C_NODISCARD uint32_t ffStrbufLastIndexC(const FFstrbuf* strbuf, char c)
 {
     if(strbuf->length == 0)
-        return strbuf->length;
+        return 0;
 
     return ffStrbufPreviousIndexC(strbuf, strbuf->length - 1, c);
 }

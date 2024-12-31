@@ -1,5 +1,6 @@
 #include "fastfetch.h"
 #include "opengl.h"
+#include "common/io/io.h"
 
 #include <string.h>
 
@@ -120,7 +121,7 @@ static const char* detectByGlx(FFOpenGLResult* result)
     GLXData data;
 
     FF_LIBRARY_LOAD(glx, "dlopen glx failed",
-        #if !__OpenBSD__
+        #if !__OpenBSD__ && !__NetBSD__
             "libGLX"
         #else
             "libGL"
@@ -139,6 +140,8 @@ static const char* detectByGlx(FFOpenGLResult* result)
     FF_LIBRARY_LOAD_SYMBOL_VAR_MESSAGE(glx, data, XFreePixmap);
     FF_LIBRARY_LOAD_SYMBOL_VAR_MESSAGE(glx, data, XCloseDisplay);
     FF_LIBRARY_LOAD_SYMBOL_VAR_MESSAGE(glx, data, XFree);
+
+    FF_SUPPRESS_IO();
 
     return glxHandleData(result, &data);
 }

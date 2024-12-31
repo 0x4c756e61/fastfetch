@@ -39,7 +39,7 @@ static const FFLocalIpNIFlag niFlagOptions[] = {
     { IFF_PROMISC, "PROMISC" },
     { IFF_ALLMULTI, "ALLMULTI" },
     { IFF_MULTICAST, "MULTICAST" },
-#if defined(__linux__) || defined(__APPLE__) || defined(__sun)
+#ifdef IFF_NOTRAILERS
     { IFF_NOTRAILERS, "NOTRAILERS" },
 #endif
 #ifdef __linux__
@@ -59,10 +59,10 @@ static const FFLocalIpNIFlag niFlagOptions[] = {
     { IFF_LINK1, "LINK1" },
     { IFF_LINK2, "LINK2" },
 #endif
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#ifdef IFF_ALTPHYS
     { IFF_ALTPHYS, "ALTPHYS" },
 #endif
-#ifdef __FreeBSD__
+#ifdef IFF_CANTCONFIG
     { IFF_CANTCONFIG, "CANTCONFIG" },
 #endif
     // sentinel
@@ -231,7 +231,7 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
             FF_LIST_FOR_EACH(FFLocalIpResult, iface, *results)
             {
                 struct ifreq ifr;
-                ffStrCopyN(ifr.ifr_name, iface->name.chars, IFNAMSIZ);
+                ffStrCopy(ifr.ifr_name, iface->name.chars, IFNAMSIZ);
 
                 if (options->showType & FF_LOCALIP_TYPE_MTU_BIT)
                 {
@@ -248,7 +248,7 @@ const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
                         iface->speed = (edata.speed_hi << 16) | edata.speed; // ethtool_cmd_speed is not available on Android
                     #elif __FreeBSD__ || __APPLE__ || __OpenBSD__ || __NetBSD__
                     struct ifmediareq ifmr = {};
-                    ffStrCopyN(ifmr.ifm_name, iface->name.chars, IFNAMSIZ);
+                    ffStrCopy(ifmr.ifm_name, iface->name.chars, IFNAMSIZ);
                     if (ioctl(sockfd, SIOCGIFMEDIA, &ifmr) == 0 && (IFM_TYPE(ifmr.ifm_active) & IFM_ETHER))
                     {
                         switch (IFM_SUBTYPE(ifmr.ifm_active))

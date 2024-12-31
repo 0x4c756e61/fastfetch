@@ -39,19 +39,26 @@ static void applyDriverName(VkPhysicalDeviceDriverPropertiesKHR* properties, FFs
 
 static const char* detectVulkan(FFVulkanResult* result)
 {
-    FF_LIBRARY_LOAD(vulkan, "dlopen libvulkan"FF_LIBRARY_EXTENSION " failed",
-        #ifdef __APPLE__
-            "libMoltenVK"FF_LIBRARY_EXTENSION, -1
-        #elif defined(_WIN32)
-            "vulkan-1"FF_LIBRARY_EXTENSION, -1
+    FF_LIBRARY_LOAD(vulkan, "dlopen libvulkan" FF_LIBRARY_EXTENSION " failed",
+        #if __ANDROID__
+            #if UINTPTR_MAX == UINT32_MAX
+                "/system/lib/"
+            #else
+                "/system/lib64/"
+            #endif
+            "libvulkan" FF_LIBRARY_EXTENSION, -1
+        #elif __APPLE__
+            "libMoltenVK" FF_LIBRARY_EXTENSION, -1
+        #elif _WIN32
+            "vulkan-1" FF_LIBRARY_EXTENSION, -1
         #else
-            "libvulkan"FF_LIBRARY_EXTENSION, 2
+            "libvulkan" FF_LIBRARY_EXTENSION, 2
         #endif
     )
-    FF_LIBRARY_LOAD_SYMBOL_MESSAGE2(vulkan, vkGetInstanceProcAddr, vkGetInstanceProcAddr@8)
-    FF_LIBRARY_LOAD_SYMBOL_MESSAGE2(vulkan, vkCreateInstance, vkCreateInstance@12)
-    FF_LIBRARY_LOAD_SYMBOL_MESSAGE2(vulkan, vkDestroyInstance, vkDestroyInstance@8)
-    FF_LIBRARY_LOAD_SYMBOL_MESSAGE2(vulkan, vkEnumeratePhysicalDevices, vkEnumeratePhysicalDevices@12)
+    FF_LIBRARY_LOAD_SYMBOL_MESSAGE(vulkan, vkGetInstanceProcAddr)
+    FF_LIBRARY_LOAD_SYMBOL_MESSAGE(vulkan, vkCreateInstance)
+    FF_LIBRARY_LOAD_SYMBOL_MESSAGE(vulkan, vkDestroyInstance)
+    FF_LIBRARY_LOAD_SYMBOL_MESSAGE(vulkan, vkEnumeratePhysicalDevices)
 
     //Some drivers (nvdc) print messages to stdout
     //and that is the best way I found to disable that
@@ -218,7 +225,7 @@ static const char* detectVulkan(FFVulkanResult* result)
         ffStrbufInitS(&gpu->name, physicalDeviceProperties.properties.deviceName);
 
         gpu->type = physicalDeviceProperties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? FF_GPU_TYPE_DISCRETE : FF_GPU_TYPE_INTEGRATED;
-        ffStrbufInitS(&gpu->vendor, ffGetGPUVendorString(physicalDeviceProperties.properties.vendorID));
+        ffStrbufInitS(&gpu->vendor, ffGPUGetVendorString(physicalDeviceProperties.properties.vendorID));
         ffStrbufInitS(&gpu->driver, driverProperties.driverInfo);
 
         VkPhysicalDeviceMemoryProperties memoryProperties = {};

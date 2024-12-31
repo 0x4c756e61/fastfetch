@@ -258,6 +258,13 @@ static const FFlogo A[] = {
         .lines = FASTFETCH_DATATEXT_LOGO_APERTURE,
         .colors = {
             FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_CYAN,
         },
         .colorKeys = FF_COLOR_FG_CYAN,
         .colorTitle = FF_COLOR_FG_WHITE,
@@ -1062,6 +1069,20 @@ static const FFlogo C[] = {
         },
         .colorKeys = FF_COLOR_FG_BLUE,
         .colorTitle = FF_COLOR_FG_WHITE,
+    },
+    // Cosmic DE
+    {
+        .names = {"Cosmic"},
+        .lines = FASTFETCH_DATATEXT_LOGO_COSMIC,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+            FF_COLOR_FG_LIGHT_YELLOW,
+            FF_COLOR_FG_YELLOW,
+            FF_COLOR_FG_LIGHT_RED,
+            FF_COLOR_FG_RED,
+        },
+        .colorKeys = FF_COLOR_FG_LIGHT_RED,
+        .colorTitle = FF_COLOR_FG_YELLOW,
     },
     // CRUX
     {
@@ -1891,6 +1912,15 @@ static const FFlogo G[] = {
         .colorKeys = FF_COLOR_FG_MAGENTA,
         .colorTitle = FF_COLOR_FG_WHITE,
     },
+    // GoralixOS
+    {
+        .names = {"GoralixOS"},
+        .lines = FASTFETCH_DATATEXT_LOGO_GORALIXOS,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+            FF_COLOR_FG_LIGHT_BLACK,
+        },
+    },
     // GrapheneOS
     {
         .names = {"GrapheneOS"},
@@ -2382,6 +2412,16 @@ static const FFlogo L[] = {
         .colorKeys = FF_COLOR_FG_GREEN,
         .colorTitle = FF_COLOR_FG_YELLOW,
     },
+    // Lilidog
+    {
+        .names = {"Lilidog"},
+        .lines = FASTFETCH_DATATEXT_LOGO_LILIDOG,
+        .colors = {
+            FF_COLOR_FG_BLUE,
+        },
+        .colorKeys = FF_COLOR_FG_RED,
+        .colorTitle = FF_COLOR_FG_WHITE,
+    },
     // Lingmo OS
     {
         .names = {"Lingmo", "lingmo", "LingmoOS", "lingmoos"},
@@ -2446,10 +2486,10 @@ static const FFlogo L[] = {
         .names = {"LinuxLite", "Linux Lite", "linux_lite"},
         .lines = FASTFETCH_DATATEXT_LOGO_LINUXLITE,
         .colors = {
-            FF_COLOR_FG_YELLOW,
+            FF_COLOR_FG_GREEN,
             FF_COLOR_FG_WHITE,
         },
-        .colorKeys = FF_COLOR_FG_YELLOW,
+        .colorKeys = FF_COLOR_FG_GREEN,
         .colorTitle = FF_COLOR_FG_WHITE,
     },
     // LinuxLightSmall
@@ -2458,10 +2498,10 @@ static const FFlogo L[] = {
         .type = FF_LOGO_LINE_TYPE_SMALL_BIT,
         .lines = FASTFETCH_DATATEXT_LOGO_LINUXLITE_SMALL,
         .colors = {
-            FF_COLOR_FG_YELLOW,
+            FF_COLOR_FG_BLUE,
             FF_COLOR_FG_WHITE,
         },
-        .colorKeys = FF_COLOR_FG_YELLOW,
+        .colorKeys = FF_COLOR_FG_BLUE,
         .colorTitle = FF_COLOR_FG_WHITE,
     },
     // LinuxMint
@@ -2792,10 +2832,31 @@ static const FFlogo M[] = {
         .colorKeys = FF_COLOR_FG_BLUE,
         .colorTitle = FF_COLOR_FG_WHITE,
     },
+    // MidnightBSD
+    {
+        .names = {"MidnightBSD"},
+        .lines = FASTFETCH_DATATEXT_LOGO_MIDNIGHTBSD,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+        },
+        .colorKeys = FF_COLOR_FG_LIGHT_BLACK,
+        .colorTitle = FF_COLOR_FG_WHITE,
+    },
     // MidOS
     {
         .names = {"MidOS"},
         .lines = FASTFETCH_DATATEXT_LOGO_MIDOS,
+        .colors = {
+            FF_COLOR_FG_LIGHT_BLACK,
+        },
+        .colorKeys = FF_COLOR_FG_LIGHT_BLACK,
+        .colorTitle = FF_COLOR_FG_WHITE,
+    },
+    // MidOSOld
+    {
+        .names = {"MidOS_old"},
+        .lines = FASTFETCH_DATATEXT_LOGO_MIDOS_OLD,
+        .type = FF_LOGO_LINE_TYPE_ALTER_BIT,
         .colors = {
             FF_COLOR_FG_LIGHT_BLACK,
             FF_COLOR_FG_WHITE,
@@ -3034,6 +3095,15 @@ static const FFlogo N[] = {
         .colorKeys = FF_COLOR_FG_BLUE,
         .colorTitle = FF_COLOR_FG_WHITE,
     },
+    // NurOS
+    {
+        .names = {"NurOS"},
+        .lines = FASTFETCH_DATATEXT_LOGO_NUROS,
+        .colors = {
+            FF_COLOR_FG_BLUE,
+            FF_COLOR_FG_WHITE,
+        },
+    },
     // Nurunner
     {
         .names = {"Nurunner"},
@@ -3196,8 +3266,19 @@ static const FFlogo O[] = {
     },
     // OpenSuseLeap
     {
-        .names = {"opensuse_leap", "open_suse_leap", "opensuse-leap", "open-suse-leap", "suse_leap", "suse-leap", "opensuseleap"},
+        .names = {"opensuse_leap", "opensuse leap"},
         .lines = FASTFETCH_DATATEXT_LOGO_OPENSUSE_LEAP,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+        },
+        .colorKeys = FF_COLOR_FG_GREEN,
+        .colorTitle = FF_COLOR_FG_GREEN,
+    },
+    // OpenSuseLeapOld
+    {
+        .names = {"opensuse_leap_old", "opensuse leap_old"},
+        .lines = FASTFETCH_DATATEXT_LOGO_OPENSUSE_LEAP_OLD,
+        .type = FF_LOGO_LINE_TYPE_ALTER_BIT,
         .colors = {
             FF_COLOR_FG_WHITE,
         },
@@ -3989,6 +4070,14 @@ static const FFlogo S[] = {
             FF_COLOR_FG_RED,
         },
     },
+    // Serpent OS
+    {
+        .names = {"Serpent OS"},
+        .lines = FASTFETCH_DATATEXT_LOGO_SERPENT_OS,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+        },
+    },
     // Semc
     {
         .names = {"semc"},
@@ -4564,6 +4653,24 @@ static const FFlogo U[] = {
             FF_COLOR_FG_WHITE,
         },
     },
+    // Ultramarine Small
+    {
+        .names = {"Ultramarine_small"},
+        .lines = FASTFETCH_DATATEXT_LOGO_ULTRAMARINE_SMALL,
+        .colors = {
+            FF_COLOR_FG_BLUE,
+            FF_COLOR_FG_WHITE,
+        },
+    },
+    // Unifi
+    {
+        .names = {"Unifi"},
+        .lines = FASTFETCH_DATATEXT_LOGO_UNIFI,
+        .colors = {
+            FF_COLOR_FG_WHITE,
+            FF_COLOR_FG_WHITE,
+        },
+    },
     // Univalent
     {
         .names = {"Univalent"},
@@ -4747,6 +4854,19 @@ static const FFlogo W[] = {
             FF_COLOR_FG_CYAN,
             FF_COLOR_FG_WHITE,
         },
+    },
+    // Windows2025
+    {
+        .names = {"Windows Server 2025"},
+        .lines = FASTFETCH_DATATEXT_LOGO_WINDOWS_2025,
+        .colors = {
+            FF_COLOR_FG_BLUE,
+            FF_COLOR_FG_BLUE,
+            FF_COLOR_FG_BLUE,
+            FF_COLOR_FG_BLUE,
+        },
+        .colorKeys = FF_COLOR_FG_YELLOW,
+        .colorTitle = FF_COLOR_FG_CYAN,
     },
     // Windows11
     {

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0) # target_link_libraries with OBJECT libs & project homepage url
 
 project(fastfetch
-    VERSION 2.28.0
+    VERSION 2.33.0
     LANGUAGES C
     DESCRIPTION "Fast neofetch-like system information tool"
     HOMEPAGE_URL "https://github.com/fastfetch-cli/fastfetch"
@@ -20,8 +20,14 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
     set(FreeBSD TRUE CACHE BOOL "..." FORCE)
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "OpenBSD")
     set(OpenBSD TRUE CACHE BOOL "..." FORCE)
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "MidnightBSD")
+    set(FreeBSD TRUE CACHE BOOL "..." FORCE)
+    set(MidnightBSD TRUE CACHE BOOL "..." FORCE)
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "NetBSD")
     set(NetBSD TRUE CACHE BOOL "..." FORCE)
+elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "DragonFly")
+    set(FreeBSD TRUE CACHE BOOL "..." FORCE)
+    set(DragonFly TRUE CACHE BOOL "..." FORCE)
 elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")
     set(SunOS TRUE CACHE BOOL "..." FORCE)
 elseif(NOT APPLE AND NOT WIN32)
@@ -51,9 +57,7 @@ include(CMakeDependentOption)
 cmake_dependent_option(ENABLE_VULKAN "Enable vulkan" ON "LINUX OR APPLE OR FreeBSD OR OpenBSD OR NetBSD OR WIN32 OR ANDROID OR SunOS" OFF)
 cmake_dependent_option(ENABLE_WAYLAND "Enable wayland-client" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD" OFF)
 cmake_dependent_option(ENABLE_XCB_RANDR "Enable xcb-randr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
-cmake_dependent_option(ENABLE_XCB "Enable xcb" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
 cmake_dependent_option(ENABLE_XRANDR "Enable xrandr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
-cmake_dependent_option(ENABLE_X11 "Enable x11" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
 cmake_dependent_option(ENABLE_DRM "Enable libdrm" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
 cmake_dependent_option(ENABLE_DRM_AMDGPU "Enable libdrm_amdgpu" ON "LINUX" OFF)
 cmake_dependent_option(ENABLE_GIO "Enable gio-2.0" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS" OFF)
@@ -74,13 +78,15 @@ cmake_dependent_option(ENABLE_FREETYPE "Enable freetype" ON "ANDROID" OFF)
 cmake_dependent_option(ENABLE_PULSE "Enable pulse" ON "LINUX OR OpenBSD OR NetBSD OR SunOS" OFF)
 cmake_dependent_option(ENABLE_DDCUTIL "Enable ddcutil" ON "LINUX" OFF)
 cmake_dependent_option(ENABLE_DIRECTX_HEADERS "Enable DirectX headers for WSL" ON "LINUX" OFF)
-cmake_dependent_option(ENABLE_ELF "Enable libelf" ON "LINUX OR ANDROID" OFF)
+cmake_dependent_option(ENABLE_ELF "Enable libelf" ON "LINUX OR ANDROID OR DragonFly" OFF)
 cmake_dependent_option(ENABLE_THREADS "Enable multithreading" ON "Threads_FOUND" OFF)
 cmake_dependent_option(ENABLE_LIBZFS "Enable libzfs" ON "LINUX OR FreeBSD OR SunOS" OFF)
+cmake_dependent_option(ENABLE_PCIACCESS "Enable libpciaccess" ON "NetBSD OR OpenBSD OR SunOS" OFF)
 
 option(ENABLE_SYSTEM_YYJSON "Use system provided (instead of fastfetch embedded) yyjson library" OFF)
 option(ENABLE_ASAN "Build fastfetch with ASAN (address sanitizer)" OFF)
 option(ENABLE_LTO "Enable link-time optimization in release mode if supported" ON)
+option(BUILD_FLASHFETCH "Build flashfetch" ON) # Also build the flashfetch binary
 option(BUILD_TESTS "Build tests" OFF) # Also create test executables
 option(SET_TWEAK "Add tweak to project version" ON) # This is set to off by github actions for release builds
 option(IS_MUSL "Build with musl libc" OFF) # Used by Github Actions
@@ -249,6 +255,7 @@ endfunction(fastfetch_load_text)
 
 find_package(Python)
 if(Python_FOUND)
+    message(STATUS "Minifying 'help.json'")
     execute_process(COMMAND ${Python_EXECUTABLE} -c "import json,sys;json.dump(json.load(sys.stdin),sys.stdout,separators=(',',':'))"
                     INPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/data/help.json"
                     OUTPUT_VARIABLE DATATEXT_JSON_HELP)
@@ -256,18 +263,37 @@ if(Python_FOUND)
         message(ERROR "DATATEXT_JSON_HELP is empty, which should not happen!")
     endif()
 else()
-    message(STATUS "Python3 is not found, 'help.json' will not be minified")
+    message(WARNING "Python3 is not found, 'help.json' will not be minified")
     file(READ "src/data/help.json" DATATEXT_JSON_HELP)
 endif()
 
-if(ENABLE_EMBEDDED_PCIIDS AND NOT EXISTS "fastfetch_pciids.c.inc")
+if(ENABLE_EMBEDDED_PCIIDS AND NOT EXISTS "${PROJECT_BINARY_DIR}/fastfetch_pciids.c.inc")
     if(Python_FOUND)
+        message(STATUS "Generating 'fastfetch_pciids.c.inc'")
         execute_process(COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-pciids.py"
-                        OUTPUT_FILE "fastfetch_pciids.c.inc")
+                        OUTPUT_FILE "${PROJECT_BINARY_DIR}/fastfetch_pciids.c.inc"
+                        RESULT_VARIABLE PYTHON_PCIIDS_RETCODE)
+        if(NOT PYTHON_PCIIDS_RETCODE EQUAL 0)
+            message(FATAL_ERROR "Failed to generate 'fastfetch_pciids.c.inc'")
+        endif()
     else()
-        message(STATUS "Python3 is not found, 'fastfetch_pciids.c.inc' will not be generated")
+        message(WARNING "Python3 is not found, 'fastfetch_pciids.c.inc' will not be generated")
         set(ENABLE_EMBEDDED_PCIIDS OFF)
     endif()
+endif()
+
+if(Python_FOUND)
+    message(STATUS "Generating 'fastfetch.1'")
+    execute_process(COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen-man.py"
+                    OUTPUT_FILE "${PROJECT_BINARY_DIR}/fastfetch.1"
+                    RESULT_VARIABLE PYTHON_MANPAGE_RETCODE)
+        if(NOT PYTHON_MANPAGE_RETCODE EQUAL 0)
+            message(FATAL_ERROR "Failed to generate 'fastfetch.1'")
+        endif()
+else()
+    message(WARNING "Python3 is not found, use basic 'fastfetch.1.in' instead")
+    string(TIMESTAMP FASTFETCH_BUILD_DATE "%d %B %Y" UTC)
+    configure_file(doc/fastfetch.1.in fastfetch.1 @ONLY)
 endif()
 
 fastfetch_encode_c_string("${DATATEXT_JSON_HELP}" DATATEXT_JSON_HELP)
@@ -281,9 +307,6 @@ configure_file(src/fastfetch_datatext.h.in fastfetch_datatext.h @ONLY)
 if(APPLE)
     configure_file(src/util/apple/Info.plist.in Info.plist @ONLY)
 endif()
-
-string(TIMESTAMP FASTFETCH_BUILD_DATE "%d %B %Y" UTC)
-configure_file(doc/fastfetch.1.in fastfetch.1 @ONLY)
 
 ####################
 # Ascii image data #
@@ -480,6 +503,7 @@ if(LINUX)
         src/detection/gpu/gpu_pci.c
         src/detection/gtk_qt/gtk.c
         src/detection/host/host_linux.c
+        src/detection/host/host_mac.c
         src/detection/icons/icons_linux.c
         src/detection/initsystem/initsystem_linux.c
         src/detection/keyboard/keyboard_linux.c
@@ -593,8 +617,7 @@ elseif(FreeBSD)
         src/common/sysctl.c
         src/detection/battery/battery_bsd.c
         src/detection/bios/bios_bsd.c
-        src/detection/bluetooth/bluetooth_linux.c
-        src/detection/bluetoothradio/bluetoothradio_linux.c
+        src/detection/bluetoothradio/bluetoothradio_nosupport.c
         src/detection/board/board_bsd.c
         src/detection/bootmgr/bootmgr_bsd.c
         src/detection/brightness/brightness_bsd.c
@@ -627,6 +650,7 @@ elseif(FreeBSD)
         src/detection/gpu/gpu_pci.c
         src/detection/gtk_qt/gtk.c
         src/detection/host/host_bsd.c
+        src/detection/host/host_mac.c
         src/detection/lm/lm_linux.c
         src/detection/icons/icons_linux.c
         src/detection/initsystem/initsystem_linux.c
@@ -665,6 +689,15 @@ elseif(FreeBSD)
         src/util/platform/FFPlatform_unix.c
         src/util/binary_linux.c
     )
+    if(DragonFly)
+        list(APPEND LIBFASTFETCH_SRC
+            src/detection/bluetooth/bluetooth_nosupport.c
+        )
+    else()
+        list(APPEND LIBFASTFETCH_SRC
+            src/detection/bluetooth/bluetooth_bsd.c
+        )
+    endif()
 elseif(NetBSD)
     list(APPEND LIBFASTFETCH_SRC
         src/common/dbus.c
@@ -673,16 +706,16 @@ elseif(NetBSD)
         src/common/networking_linux.c
         src/common/processing_linux.c
         src/common/sysctl.c
-        src/detection/battery/battery_nosupport.c
+        src/detection/battery/battery_nbsd.c
         src/detection/bios/bios_nbsd.c
-        src/detection/bluetooth/bluetooth_linux.c
-        src/detection/bluetoothradio/bluetoothradio_linux.c
+        src/detection/bluetooth/bluetooth_nosupport.c
+        src/detection/bluetoothradio/bluetoothradio_nosupport.c
         src/detection/board/board_nbsd.c
         src/detection/bootmgr/bootmgr_nosupport.c
-        src/detection/brightness/brightness_bsd.c
+        src/detection/brightness/brightness_nbsd.c
         src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_nbsd.c
-        src/detection/cpu/cpu_bsd.c
+        src/detection/cpu/cpu_nbsd.c
         src/detection/cpucache/cpucache_nosupport.c
         src/detection/cpuusage/cpuusage_bsd.c
         src/detection/cursor/cursor_linux.c
@@ -690,7 +723,7 @@ elseif(NetBSD)
         src/detection/dns/dns_linux.c
         src/detection/physicaldisk/physicaldisk_nosupport.c
         src/detection/physicalmemory/physicalmemory_nosupport.c
-        src/detection/diskio/diskio_nosupport.c
+        src/detection/diskio/diskio_nbsd.c
         src/detection/displayserver/linux/displayserver_linux.c
         src/detection/displayserver/linux/drm.c
         src/detection/displayserver/linux/wayland/wayland.c
@@ -705,7 +738,7 @@ elseif(NetBSD)
         src/detection/displayserver/linux/xcb.c
         src/detection/displayserver/linux/xlib.c
         src/detection/font/font_linux.c
-        src/detection/gpu/gpu_nosupport.c
+        src/detection/gpu/gpu_general.c
         src/detection/gpu/gpu_pci.c
         src/detection/gtk_qt/gtk.c
         src/detection/host/host_nbsd.c
@@ -721,12 +754,12 @@ elseif(NetBSD)
         src/detection/media/media_linux.c
         src/detection/memory/memory_obsd.c
         src/detection/mouse/mouse_nosupport.c
-        src/detection/netio/netio_nosupport.c
+        src/detection/netio/netio_bsd.c
         src/detection/opengl/opengl_linux.c
         src/detection/os/os_nbsd.c
-        src/detection/packages/packages_nosupport.c
+        src/detection/packages/packages_obsd.c
         src/detection/poweradapter/poweradapter_nosupport.c
-        src/detection/processes/processes_nosupport.c
+        src/detection/processes/processes_nbsd.c
         src/detection/gtk_qt/qt.c
         src/detection/sound/sound_linux.c
         src/detection/swap/swap_obsd.c
@@ -755,13 +788,13 @@ elseif(OpenBSD)
         src/common/networking_linux.c
         src/common/processing_linux.c
         src/common/sysctl.c
-        src/detection/battery/battery_nosupport.c
+        src/detection/battery/battery_obsd.c
         src/detection/bios/bios_nosupport.c
         src/detection/bluetooth/bluetooth_nosupport.c
         src/detection/bluetoothradio/bluetoothradio_nosupport.c
         src/detection/board/board_nosupport.c
         src/detection/bootmgr/bootmgr_nosupport.c
-        src/detection/brightness/brightness_nosupport.c
+        src/detection/brightness/brightness_obsd.c
         src/detection/btrfs/btrfs_nosupport.c
         src/detection/chassis/chassis_nosupport.c
         src/detection/cpu/cpu_obsd.c
@@ -772,7 +805,7 @@ elseif(OpenBSD)
         src/detection/dns/dns_linux.c
         src/detection/physicaldisk/physicaldisk_nosupport.c
         src/detection/physicalmemory/physicalmemory_nosupport.c
-        src/detection/diskio/diskio_nosupport.c
+        src/detection/diskio/diskio_obsd.c
         src/detection/displayserver/linux/displayserver_linux.c
         src/detection/displayserver/linux/drm.c
         src/detection/displayserver/linux/wayland/wayland.c
@@ -787,7 +820,8 @@ elseif(OpenBSD)
         src/detection/displayserver/linux/xcb.c
         src/detection/displayserver/linux/xlib.c
         src/detection/font/font_linux.c
-        src/detection/gpu/gpu_nosupport.c
+        src/detection/gpu/gpu_pci.c
+        src/detection/gpu/gpu_general.c
         src/detection/gtk_qt/gtk.c
         src/detection/host/host_obsd.c
         src/detection/lm/lm_nosupport.c
@@ -802,7 +836,7 @@ elseif(OpenBSD)
         src/detection/media/media_linux.c
         src/detection/memory/memory_obsd.c
         src/detection/mouse/mouse_nosupport.c
-        src/detection/netio/netio_nosupport.c
+        src/detection/netio/netio_bsd.c
         src/detection/opengl/opengl_linux.c
         src/detection/os/os_obsd.c
         src/detection/packages/packages_obsd.c
@@ -817,13 +851,13 @@ elseif(OpenBSD)
         src/detection/theme/theme_linux.c
         src/detection/tpm/tpm_nosupport.c
         src/detection/uptime/uptime_bsd.c
-        src/detection/users/users_nosupport.c
+        src/detection/users/users_obsd.c
         src/detection/wallpaper/wallpaper_linux.c
         src/detection/wifi/wifi_nosupport.c
         src/detection/wm/wm_nosupport.c
         src/detection/de/de_linux.c
         src/detection/wmtheme/wmtheme_linux.c
-        src/detection/camera/camera_nosupport.c
+        src/detection/camera/camera_linux.c
         src/detection/zpool/zpool_nosupport.c
         src/util/platform/FFPlatform_unix.c
         src/util/binary_linux.c
@@ -858,6 +892,7 @@ elseif(APPLE)
         src/detection/gpu/gpu_apple.c
         src/detection/gpu/gpu_apple.m
         src/detection/host/host_apple.c
+        src/detection/host/host_mac.c
         src/detection/icons/icons_nosupport.c
         src/detection/initsystem/initsystem_linux.c
         src/detection/keyboard/keyboard_apple.c
@@ -870,7 +905,7 @@ elseif(APPLE)
         src/detection/media/media_apple.m
         src/detection/memory/memory_apple.c
         src/detection/mouse/mouse_apple.c
-        src/detection/netio/netio_bsd.c
+        src/detection/netio/netio_apple.c
         src/detection/opengl/opengl_apple.c
         src/detection/os/os_apple.m
         src/detection/packages/packages_apple.c
@@ -907,6 +942,7 @@ elseif(WIN32)
         src/detection/battery/battery_windows.c
         src/detection/bios/bios_windows.c
         src/detection/bluetooth/bluetooth_windows.c
+        src/detection/bluetooth/bluetooth_windows.cpp
         src/detection/bluetoothradio/bluetoothradio_windows.c
         src/detection/board/board_windows.c
         src/detection/bootmgr/bootmgr_windows.c
@@ -925,6 +961,7 @@ elseif(WIN32)
         src/detection/dns/dns_windows.c
         src/detection/font/font_windows.c
         src/detection/gpu/gpu_windows.c
+        src/detection/host/host_mac.c
         src/detection/host/host_windows.c
         src/detection/icons/icons_windows.c
         src/detection/initsystem/initsystem_nosupport.c
@@ -1118,11 +1155,26 @@ if(APPLE AND EXISTS "/usr/bin/otool")
         target_compile_definitions(libfastfetch PUBLIC FF_LIBSYSTEM_VERSION="${CMAKE_MATCH_1}")
     endif()
 endif()
-if(FreeBSD AND EXISTS "/usr/local/bin/objdump")
-    execute_process(COMMAND /bin/sh -c "/usr/local/bin/objdump -T /lib/libc.so.* | grep 'FBSD_[^ )]*' -o | sort -Vru | head -1"
+if(MidnightBSD AND EXISTS "/usr/bin/objdump")
+    execute_process(COMMAND /bin/sh -c "/usr/bin/objdump -T /lib/libc.so.* | grep 'FBSD_[0-9][0-9]*\\.[0-9][0-9]*' -o | sort -Vru | head -1"
                     OUTPUT_VARIABLE OBJDUMP_T_RESULT)
     if("${OBJDUMP_T_RESULT}" MATCHES "FBSD_([0-9]+\\.[0-9]+)")
+        message(STATUS "Found FBSD ${CMAKE_MATCH_1}")
         target_compile_definitions(libfastfetch PUBLIC FF_FBSD_VERSION="${CMAKE_MATCH_1}")
+    endif()
+elseif(FreeBSD AND EXISTS "/usr/local/bin/objdump")
+    execute_process(COMMAND /bin/sh -c "/usr/local/bin/objdump -T /lib/libc.so.* | grep 'FBSD_[0-9][0-9]*\\.[0-9][0-9]*' -o | sort -Vru | head -1"
+                    OUTPUT_VARIABLE OBJDUMP_T_RESULT)
+    if("${OBJDUMP_T_RESULT}" MATCHES "FBSD_([0-9]+\\.[0-9]+)")
+        message(STATUS "Found FBSD ${CMAKE_MATCH_1}")
+        target_compile_definitions(libfastfetch PUBLIC FF_FBSD_VERSION="${CMAKE_MATCH_1}")
+    endif()
+elseif(DragonFly AND EXISTS "/usr/local/bin/objdump")
+    execute_process(COMMAND /bin/sh -c "/usr/local/bin/objdump -T /lib/libc.so.* | grep 'DF[0-9][0-9]*\\.[0-9][0-9]*' -o | sort -Vru | head -1"
+                    OUTPUT_VARIABLE OBJDUMP_T_RESULT)
+    if("${OBJDUMP_T_RESULT}" MATCHES "DF([0-9]+\\.[0-9]+)")
+        message(STATUS "Found DF ${CMAKE_MATCH_1}")
+        target_compile_definitions(libfastfetch PUBLIC FF_DF_VERSION="${CMAKE_MATCH_1}")
     endif()
 endif()
 
@@ -1131,16 +1183,30 @@ if(LINUX)
 elseif(ANDROID)
     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE _XOPEN_SOURCE _FILE_OFFSET_BITS=64 "$<$<CONFIG:DEBUG>:__BIONIC_FORTIFY>" "$<$<CONFIG:DEBUG>:__BIONIC_FORTIFY_RUNTIME_CHECKS_ENABLED>")
 elseif(WIN32)
-    target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE WIN32_LEAN_AND_MEAN=1 _WIN32_WINNT=0x0A00 NOMINMAX) # "$<$<CONFIG:Release>:_FORTIFY_SOURCE=3>"
+    target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00 NOMINMAX UNICODE) # "$<$<CONFIG:Release>:_FORTIFY_SOURCE=3>"
 elseif(APPLE)
     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE _XOPEN_SOURCE __STDC_WANT_LIB_EXT1__ _FILE_OFFSET_BITS=64 _DARWIN_C_SOURCE)
 elseif(OpenBSD)
     target_compile_definitions(libfastfetch PUBLIC _XOPEN_SOURCE=700 _FILE_OFFSET_BITS=64 _BSD_SOURCE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,/usr/X11R6/lib") # detect x11 lib path automatically
+elseif(DragonFly)
+    target_compile_definitions(libfastfetch PUBLIC __FreeBSD__)
 elseif(SunOS)
     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE _XOPEN_SOURCE __STDC_WANT_LIB_EXT1__ _FILE_OFFSET_BITS=64 __EXTENSIONS__ _POSIX_C_SOURCE)
 elseif(NetBSD)
     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-char-subscripts")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,/usr/X11R7/lib -Wl,-rpath,/usr/pkg/lib") # ditto
+endif()
+
+if(FreeBSD OR OpenBSD OR NetBSD)
+    include(CheckStructHasMember)
+    set(CMAKE_REQUIRED_DEFINITIONS "-D_IFI_OQDROPS=1")
+    CHECK_STRUCT_HAS_MEMBER("struct if_data" ifi_oqdrops net/if.h HAVE_IFI_OQDROPS LANGUAGE C)
+    if(HAVE_IFI_OQDROPS)
+    target_compile_definitions(libfastfetch PUBLIC _IFI_OQDROPS FF_HAVE_IFI_OQDROPS)
+    endif()
+    unset(CMAKE_REQUIRED_DEFINITIONS)
 endif()
 
 if(HAVE_STATX)
@@ -1167,6 +1233,9 @@ endif()
 if(NOT BINARY_LINK_TYPE STREQUAL "dlopen")
     message(STATUS "Enabling custom link type: ${BINARY_LINK_TYPE}")
     target_compile_definitions(libfastfetch PRIVATE FF_DISABLE_DLOPEN=1)
+    if(NOT WIN32)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--copy-dt-needed-entries")
+    endif()
 endif()
 
 function(ff_lib_enable VARNAME PKGCONFIG_NAMES CMAKE_NAME)
@@ -1222,17 +1291,9 @@ ff_lib_enable(XCB_RANDR
     "xcb-randr"
     "XcbRandr"
 )
-ff_lib_enable(XCB
-    "xcb"
-    "Xcb"
-)
 ff_lib_enable(XRANDR
     "xrandr"
     "XRandr"
-)
-ff_lib_enable(X11
-    "x11"
-    "X11"
 )
 ff_lib_enable(DRM
     "libdrm"
@@ -1325,6 +1386,10 @@ ff_lib_enable(DIRECTX_HEADERS
     "DirectX-Headers"
     "DirectX-Headers"
 )
+ff_lib_enable(PCIACCESS
+    "pciaccess"
+    "pciaccess"
+)
 # The system <libzfs.h> is only usable on SunOS. We provide our local copy of it so it's always available.
 if(ENABLE_LIBZFS)
     if(BINARY_LINK_TYPE STREQUAL "dlopen")
@@ -1405,13 +1470,23 @@ elseif(WIN32)
         PRIVATE "imagehlp"
         PRIVATE "cfgmgr32"
         PRIVATE "winbrand"
+        PRIVATE "propsys"
     )
 elseif(FreeBSD)
     target_link_libraries(libfastfetch
         PRIVATE "m"
         PRIVATE "usbhid"
-        PRIVATE "geom"
+        PRIVATE "bluetooth"
     )
+    if(NOT DragonFly)
+        target_link_libraries(libfastfetch
+            PRIVATE "geom"
+        )
+    else()
+        target_link_libraries(libfastfetch
+            PRIVATE "devstat"
+        )
+    endif()
 elseif(OpenBSD)
     target_link_libraries(libfastfetch
         PRIVATE "m"
@@ -1420,6 +1495,7 @@ elseif(OpenBSD)
 elseif(NetBSD)
     target_link_libraries(libfastfetch
         PRIVATE "m"
+        PRIVATE "prop"
     )
 elseif(SunOS)
     target_link_libraries(libfastfetch
@@ -1546,41 +1622,52 @@ target_link_libraries(fastfetch
     PRIVATE libfastfetch
 )
 
-add_executable(flashfetch
-    src/flashfetch.c
-)
-target_compile_definitions(flashfetch
-    PRIVATE FASTFETCH_TARGET_BINARY_NAME=flashfetch
-)
-target_link_libraries(flashfetch
-    PRIVATE libfastfetch
-)
-
 # Prevent fastfetch from linking to libstdc++
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 set_target_properties(fastfetch PROPERTIES LINKER_LANGUAGE C)
-set_target_properties(flashfetch PROPERTIES LINKER_LANGUAGE C)
 
 if(WIN32)
     target_sources(fastfetch
-        PRIVATE src/util/windows/version.rc
-    )
-    target_sources(flashfetch
         PRIVATE src/util/windows/version.rc
     )
 elseif(APPLE)
     target_link_options(fastfetch
         PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,Info.plist
     )
-    target_link_options(flashfetch
-        PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,Info.plist
-    )
 endif()
 
 if(BINARY_LINK_TYPE STREQUAL "static")
     target_link_options(fastfetch PRIVATE "-static")
-    target_link_options(flashfetch PRIVATE "-static")
+endif()
+
+# Apply all above parameters to flashfetch if it is built
+if (BUILD_FLASHFETCH)
+    add_executable(flashfetch
+        src/flashfetch.c
+    )
+    target_compile_definitions(flashfetch
+        PRIVATE FASTFETCH_TARGET_BINARY_NAME=flashfetch
+    )
+    target_link_libraries(flashfetch
+        PRIVATE libfastfetch
+    )
+
+    set_target_properties(flashfetch PROPERTIES LINKER_LANGUAGE C)
+
+    if(WIN32)
+        target_sources(flashfetch
+            PRIVATE src/util/windows/version.rc
+        )
+    elseif(APPLE)
+        target_link_options(flashfetch
+            PRIVATE LINKER:-sectcreate,__TEXT,__info_plist,Info.plist
+        )
+    endif()
+
+    if(BINARY_LINK_TYPE STREQUAL "static")
+        target_link_options(flashfetch PRIVATE "-static")
+    endif()
 endif()
 
 ###################
@@ -1622,9 +1709,16 @@ endif()
 include(GNUInstallDirs)
 
 install(
-    TARGETS fastfetch flashfetch
+    TARGETS fastfetch
     DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
+
+if (TARGET flashfetch)
+    install(
+        TARGETS flashfetch
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+endif()
 
 if (TARGET ffwinrt)
     install(

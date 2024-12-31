@@ -2,12 +2,14 @@
 
 #include "common/io/io.h"
 #include "common/properties.h"
-#include "util/mallocHelper.h"
-#include "util/stringUtils.h"
 
-#include <dev/pci/pcireg.h>
 #include <sys/pciio.h>
 #include <fcntl.h>
+#if __has_include(<dev/pci/pcireg.h>)
+    #include <dev/pci/pcireg.h> // FreeBSD
+#else
+    #include <bus/pci/pcireg.h> // DragonFly
+#endif
 
 const char* ffDetectGPUImpl(const FFGPUOptions* options, FFlist* gpus)
 {
@@ -36,7 +38,7 @@ const char* ffDetectGPUImpl(const FFGPUOptions* options, FFlist* gpus)
         struct pci_conf* pc = &confs[i];
 
         FFGPUResult* gpu = (FFGPUResult*)ffListAdd(gpus);
-        ffStrbufInitStatic(&gpu->vendor, ffGetGPUVendorString(pc->pc_vendor));
+        ffStrbufInitStatic(&gpu->vendor, ffGPUGetVendorString(pc->pc_vendor));
         ffStrbufInit(&gpu->name);
         ffStrbufInitS(&gpu->driver, pc->pd_name);
         ffStrbufInit(&gpu->platformApi);
