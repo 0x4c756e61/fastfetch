@@ -1,3 +1,137 @@
+# 2.36.1
+
+Changes:
+* To use [the native arm64 runner of Github Action](https://github.blog/changelog/2025-01-16-linux-arm64-hosted-runners-now-available-for-free-in-public-repositories-public-preview/), Linux aarch64 binary is built with Ubuntu 22.04 (Glibc 2.35, Debian 12).
+
+Bugfixes:
+* Chimera Linux logo is now displayed correctly (#1554, Logo)
+    * Regression of 2.36.0
+* Fix building on Haiku
+
+Logo:
+* Fix ALT Linux
+
+# 2.36.0
+
+Bugfixes:
+* Trim leading slash for login shells (Shell, OpenBSD)
+* Prefer SOC name if available over CPU name (CPU, Linux)
+
+Features:
+* Use kernel API to detect sound devices (Sound, NetBSD)
+* Use sndio for sound server detection on OpenBSD (Sound, OpenBSD)
+* Add minimal implementation for Haiku (#1538, Haiku)
+* Support CPU & GPU temperature detection for M4x (CPU / GPU, macOS)
+* Support VMEM size detection for old Nvidia cards (GPU, Linux)
+* Use [recommendedMaxWorkingSetSize](https://developer.apple.com/documentation/metal/mtldevice/recommendedmaxworkingsetsize) as total GPU mem size (GPU, macOS)
+* Support Physical core count and CPU package count detection for loongarch (CPU, Linux)
+* Split ID_LIKE when used for distro matching (#1540, Logo)
+* Capitalize `{type}`'s first letter in custom format (#1543, Display)
+* Support model name detection for s390x (CPU, Linux)
+* Support more Armbian variants detection (#1547, OS, Linux)
+* Support the syntax of `{$ENV_VAR}` in custom format, which will be replaced by the value of the environment variable `ENV_VAR` (#1541)
+    * This is another way to pass 3rd-party data to fastfetch besides `Custom` module.
+* Improve performance of Tilix version detection (Terminal, Linux)
+
+Logo:
+* Update arch_old
+* Add Nexa Linux
+* Add filotimo
+* Update some distro names
+
+# 2.35.0
+
+Bugfixes:
+* Suppress output of EGL again (#1513, GPU, Linux)
+    * Regression of 2.34.0
+
+Features:
+* Show SOC name reported in `cpuinfo` if available (#1510, CPU, Linux)
+* Change package manager name of NetBSD from `pkg` to `pkgsrc` (#1515, Packages, NetBSD)
+* Detect SOC name on RISCV (#1519, CPU, Linux)
+* Report marketing name of new QS8Es (CPU, Android)
+* Acquire acquire more os info from lsb-release if missing from os-release (#1521)
+* CMake: add option `-DCUSTOM_LSB_RELEASE_PATH` to specify the path of `lsb-release` file
+    * `-DCUSTOM_OS_RELEASE_PATH` has been supported since `v2.11.4`
+* Report more SOC names on Android (CPU, Android)
+* Support duration printing in custom format (Disk / Users)
+    * For example:  
+```jsonc
+{
+    "modules": [
+        {
+            "key": "OS Installation Date", // No longer need to write bash scripts
+            "type": "disk",
+            "folders": "/", // Different OSes may need to specify different folders
+            "format": "{create-time:10} [{days} days]" // Reports the creation date of the root folder
+        }
+    ]
+}
+```
+
+Logo:
+* Add Arch_old
+* Update key color of NetBSD_small
+* Fix OpenBSD and many other ascii logos (#1522)
+
+# 2.34.1
+
+An early release to fix KDE Plasma 6.3 compatibility. Hopefully it can be accepted by package managers before KDE 6.3 is officially released.
+
+To package managers: if you find fastfetch bugs, it's highly appreciated if you can report them to the upstream, so that all users can benefit from the fix, instead of maintaining out-of-tree patches. Thanks!
+
+Features:
+* Report vendor name when detecting GPUs by OpenGL
+    * Note: the vendor name is actually the creator of the OpenGL driver (such as `Mesa`) and may not be the same as the GPU vendor.
+
+Bugfixes:
+* Fix Ghostty termfont detection (#1495, TerminalFont, macOS)
+* Fix compatibility with KDE Plasma 6.3 (#1504, Display, Linux)
+* Make memory usage detection logic consistent with other systems (Memory, OpenBSD / NetBSD)
+* Report media file name if media title is not available (Media)
+* Fix max frequency detection for CPUs with both performance and efficiency cores (CPU, FreeBSD)
+
+Logo:
+* Add HeliumOS
+* Add Oreon
+* Update SnigdhaOS
+
+# 2.34.0
+
+Changes:
+* We now print distro pretty name if available (OS)
+    * This is a long requested feature. However, it may break some distros. File a bug with the content of `/etc/os-release` if it breaks your distro.
+
+Bugfixes:
+* Fix thunderbolt version of new MBPs (#1465, Host, macOS)
+* Fix backlight name detection on FreeBSD (Brightness, FreeBSD)
+* Fix Terminal detection when running fastfetch in `pk-command-not-found` (#1467, Terminal, Linux)
+* Relax detection of terminals in NixOS (#1479, Terminal, Linux)
+    * Should fix konsole, ghostty and maybe others
+* Fix core count output in multi-package platforms (CPU)
+* Don't suppress the output of `preRun` (#1489)
+* Fix battery percentage detection (Battery, NetBSD)
+
+Features:
+* Support ghostty terminal font detection (TerminalFont, Linux / macOS)
+* Support `kitty-icat` image protocol, which uses `kitten icat` to generate image data
+    * Pros: support tmux; support gif animations; good performance
+    * Cons: due to the limitation of `kitten icat`, we need to clear the screen before displaying the image logo
+* Support WM version detection (WM)
+    * In Linux, Hyprland & sway are supported currently
+* Improve performance when stdout is redirected (TerminalSize)
+* Report thermal zone temp if CPU temp is not available (CPU, Linux)
+* Report sound server (Pipewire or PulseAudio) if available (#1454, Sound, Linux)
+* Enable OpenGL & OpenCL detection on Android (OpenGL / OpenCL, Android)
+* Detect & report MediaTek Dimensity 9000+ SOC name (CPU, Android)
+* Support appman (am-user) package manager detection (Packages, Linux)
+
+Logo:
+* Add Lubuntu
+* Update Xray_os
+* Add SnigdhaOS
+* Add Rhino Linux
+
 # 2.33.0
 
 Changes:
