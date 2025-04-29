@@ -1,9 +1,11 @@
 #include "fastfetch.h"
 #include "common/commandoption.h"
+#include "common/init.h"
 #include "common/io/io.h"
 #include "common/jsonconfig.h"
 #include "common/printing.h"
 #include "detection/version/version.h"
+#include "logo/logo.h"
 #include "util/stringUtils.h"
 #include "util/mallocHelper.h"
 #include "fastfetch_datatext.h"
@@ -483,13 +485,22 @@ static void optionParseConfigFile(FFdata* data, const char* key, const char* val
 
     if (instance.state.platform.exePath.length)
     {
-        ffStrbufSet(&absolutePath, &instance.state.platform.exePath);
-        ffStrbufSubstrBeforeLastC(&absolutePath, '/');
-        ffStrbufAppendS(&absolutePath, "/");
+        uint32_t lastSlash = ffStrbufLastIndexC(&instance.state.platform.exePath, '/') + 1;
+        assert(lastSlash < instance.state.platform.exePath.length);
+
+        // Try {exePath}/
+        ffStrbufSetNS(&absolutePath, lastSlash, instance.state.platform.exePath.chars);
         ffStrbufAppendS(&absolutePath, value);
         if (needExtension)
             ffStrbufAppendS(&absolutePath, ".jsonc");
+        if (parseJsoncFile(absolutePath.chars, strictJson)) return;
 
+        // Try {exePath}/presets/
+        ffStrbufSubstrBefore(&absolutePath, lastSlash);
+        ffStrbufAppendS(&absolutePath, "presets/");
+        ffStrbufAppendS(&absolutePath, value);
+        if (needExtension)
+            ffStrbufAppendS(&absolutePath, ".jsonc");
         if (parseJsoncFile(absolutePath.chars, strictJson)) return;
     }
 

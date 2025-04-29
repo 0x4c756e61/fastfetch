@@ -1,3 +1,62 @@
+# 2.42.0
+
+Changes:
+* Normalize the module name `Bios` to `BIOS` (#1721)
+    * No configuration file changes are required because fastfetch parses module names case-insensitively.
+
+Bugfixes:
+* Disable disk type detection for virtual disks (PhysicalDisk, Linux, #1669)
+* Fix incorrect CPU temperature reporting (CPU, OpenBSD)
+* Fix setting `logo.chafa.symbols` in JSON configuration (Logo, #1709)
+* Fix non-normalized time display (Uptime, #1720)
+* Miscellaneous minor fixes
+
+Features:
+* Add CPU temperature detection support (CPU, SunOS)
+* Improve CPU frequency detection (CPU, NetBSD)
+* Add Wi-Fi detection support (Wifi, NetBSD)
+* Add Webcam detection support (Camera, OpenBSD)
+    * Requires root privileges
+
+Logos:
+* Remove GoralixOS logo (#1699)
+* Add Aurora logo (#1700)
+* Add Codex Linux logo (#1701)
+
+# 2.41.0
+
+Changes:
+* Due to [the deprecation](https://github.com/actions/runner-images/issues/11101), Linux x86_64 binaries are now built with Ubuntu 22.04 (Glibc 2.35, Debian 12)
+    * You can always build fastfetch yourself on your own. Please don't report bugs related to this change.
+
+Features:
+* Support physical core count detection on non-x86 platforms (CPU, Linux / FreeBSD)
+* Support CPU frequency detection on PPC64 (CPU, FreeBSD)
+* Support soar packages count detection (Packages, Linux)
+* Support `~` path expanding on Windows (Logo, Windows)
+* Support retrieving full user name (Title)
+    * Exposed with `--title-format '{full-user-name}'`
+* Improve CPU (thermal zone) temperature detection on Windows (CPU, Windows)
+    * Administrator privileges are no longer needed
+* Support base Wifi info detection on OpenBSD (Wifi, OpenBSD) 
+    * To be tested
+* Support GPU temperature detection for Intel dGPU on Linux (GPU, Linux)
+    * To be tested
+* Add new ARM CPU part numbers (CPU, Linux)
+* Add base implementation of Bluetooth device detection (Bluetooth, NetBSD, #1690)
+* Some small improvements
+
+Logo:
+* Add anduinos
+* Add 2 more Alpine logos
+
+# 2.40.4
+
+Bugfixes:
+* Fix loading presets config on Windows (Windows, #1682)
+    * Regression of v2.40.0
+* Remove the prefix `v` of Hyprland version on Arch Linux (WM, Linux)
+
 # 2.40.3
 
 Bugfixes:
@@ -844,7 +903,7 @@ Bugfixes:
 * Fix some presets
 * Better detection for XTerm terminal fonts (#1095, TerminalFont, Linux)
 * Remove debug output (#1097, Windows)
-* Fix command line option `--gpu-hide-type` doesn't work (#1098, GPU)
+* Fix flag `--gpu-hide-type` doesn't work (#1098, GPU)
 * Fix wrong date on Raspbian 10 (#1108, DateTime, Linux)
 * Use `brightness` instead of `actuall_brightness` when detecting current brightness level (Brightness, Linux)
     * Ref: https://bugzilla.kernel.org/show_bug.cgi?id=203905
